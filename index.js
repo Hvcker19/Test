@@ -8,19 +8,19 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const VERIFY_TOKEN = "09RN12ID20OY";  // The same verify token you provided to Facebook
 
 app.get('/webhook', (req, res) => {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
+    let mode = req.query['hub.mode'];
+    let token = req.query['hub.verify_token'];
+    let challenge = req.query['hub.challenge'];
 
-    // Check if the mode is 'subscribe' and the tokens match
-    if (mode && token === VERIFY_TOKEN) {
-        // Respond with the challenge token to verify
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        // Send the challenge back to Facebook
         res.status(200).send(challenge);
     } else {
-        // If the tokens do not match, respond with '403 Forbidden'
+        // Respond with a 403 Forbidden if verification fails
         res.sendStatus(403);
     }
 });
+
 
 
 // Default route for testing
