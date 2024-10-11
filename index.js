@@ -5,22 +5,23 @@ const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const VERIFY_TOKEN = "09RN12ID20OY";  // Replace this with your token
+const VERIFY_TOKEN = "09RN12ID20OY";  // The same verify token you provided to Facebook
 
-// Webhook route
 app.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
+    // Check if the mode is 'subscribe' and the tokens match
     if (mode && token === VERIFY_TOKEN) {
-        // Respond with the challenge token from the request
+        // Respond with the challenge token to verify
         res.status(200).send(challenge);
     } else {
-        // Respond with '403 Forbidden' if verify tokens do not match
+        // If the tokens do not match, respond with '403 Forbidden'
         res.sendStatus(403);
     }
 });
+
 
 // Default route for testing
 app.get('/', (req, res) => {
