@@ -24,8 +24,9 @@ const postWebhook = (req, res) => {
     }
 };
 
-const getWebhook = (req, res) => {
-    const VERIFY_TOKEN = "09RN12ID20OY";  // Replace with actual token
+let getWebhook = (req, res) => {
+    console.log("Webhook GET hit");
+    let VERIFY_TOKEN = "your_token";  // Replace with actual token
 
     let mode = req.query['hub.mode'];
     let token = req.query['hub.verify_token'];
@@ -38,10 +39,9 @@ const getWebhook = (req, res) => {
         } else {
             res.sendStatus(403);
         }
-    } else {
-        res.sendStatus(404);
     }
 };
+
 
 // Handles messaging_postbacks events
 const handlePostback = (sender_psid, received_postback) => {
