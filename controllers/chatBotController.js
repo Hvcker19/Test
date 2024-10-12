@@ -26,7 +26,7 @@ const postWebhook = (req, res) => {
 
 let getWebhook = (req, res) => {
     console.log("Webhook GET hit");
-    let VERIFY_TOKEN = "your_token";  // Replace with actual token
+    let VERIFY_TOKEN = "L3A1W2O0A2R2K2Q95";  // Replace with actual token
 
     let mode = req.query['hub.mode'];
     let token = req.query['hub.verify_token'];
