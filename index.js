@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
+const fs = require('fs');
 
 const app = express();
 const PAGE_ACCESS_TOKEN = 'EAAT13Lq8BNIBO7zgrYlqwZBEootFXmXqXo8jWPZBcJng9Un57ZCZCdLX4gno50c3bcXFFNZBPpOxhE9xACpVpwNIaZCyMclyb993aHfJjt2YknrLd0ZCwlelxeLcY7NO9kSx9yi3MbrfZAewGAkiTOVb2ZCN7wHUzQme1DYR0NXSmVOKxUYKlYfnWAZACsrg0zWr1uvFOuvSwoZC3NBeeOKbQZDZD'; // Replace with your Page Access Token
@@ -8,8 +9,11 @@ const VERIFY_TOKEN = 'J2L3M54A1S6'; // Replace with your Webhook Verify Token
 
 app.use(bodyParser.json());
 
-// Store users and chat sessions
-let usersSearching = []; // List of users looking for a stranger
+// Load users who have liked the page from the JSON file
+let usersData = require('./users.json');
+
+// Store users searching for a stranger
+let usersSearching = [];
 let activeChats = {};    // Store active chat pairs { userId1: userId2, userId2: userId1 }
 
 // Webhook verification
@@ -28,7 +32,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Webhook for messages
+// Webhook for messages and page interactions
 app.post('/webhook', (req, res) => {
   const body = req.body;
 
@@ -39,6 +43,11 @@ app.post('/webhook', (req, res) => {
 
       if (webhookEvent.message) {
         handleMessage(senderId, webhookEvent.message);
+      }
+
+      // Check if the event is a Page Like
+      if (webhookEvent.postback && webhookEvent.postback.title === 'Like') {
+        saveUserLike(senderId);
       }
     });
 
@@ -65,11 +74,22 @@ function handleMessage(senderId, receivedMessage) {
   }
 }
 
+// Save the user ID when they like the page
+function saveUserLike(userId) {
+  if (!usersData.likedUsers.includes(userId)) {
+    usersData.likedUsers.push(userId);
+
+    // Save to the users.json file
+    fs.writeFileSync('users.json', JSON.stringify(usersData, null, 2));
+    console.log(`User ${userId} liked the page and was added to the list.`);
+  }
+}
+
 // Find a stranger for the user
 function findStranger(senderId) {
   if (usersSearching.length > 0) {
     // Match with another user
-    const strangerId = usersSearching.pop(); // Remove one user from the search list
+    const strangerId = usersSearching.pop();
 
     // Store the chat pair
     activeChats[senderId] = strangerId;
@@ -90,10 +110,8 @@ function relayMessage(senderId, messageText) {
   const partnerId = activeChats[senderId];
 
   if (partnerId) {
-    // Send the message to the partner
     callSendAPI(partnerId, { text: messageText });
   } else {
-    // The user is not in an active chat
     callSendAPI(senderId, { text: "You are not currently in a chat. Type '-start' to find a stranger." });
   }
 }
@@ -103,7 +121,6 @@ function endChat(senderId) {
   const partnerId = activeChats[senderId];
 
   if (partnerId) {
-    // Notify both users
     callSendAPI(senderId, { text: "You have ended the chat." });
     callSendAPI(partnerId, { text: "The stranger has left the chat." });
 
