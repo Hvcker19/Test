@@ -38,16 +38,22 @@ app.post('/webhook', (req, res) => {
 
   if (body.object === 'page') {
     body.entry.forEach(entry => {
-      const webhookEvent = entry.messaging[0];
-      const senderId = webhookEvent.sender.id;
-
-      if (webhookEvent.message) {
-        handleMessage(senderId, webhookEvent.message);
+      // Handle page likes/follows
+      if (entry.changes && entry.changes[0].field === 'feed') {
+        const change = entry.changes[0];
+        if (change.value && change.value.item === 'like' && change.value.verb === 'add') {
+          const senderId = change.value.sender_id;
+          saveUserLike(senderId);
+        }
       }
 
-      // Check if the event is a Page Like
-      if (webhookEvent.postback && webhookEvent.postback.title === 'Like') {
-        saveUserLike(senderId);
+      // Handle normal messaging events
+      const webhookEvent = entry.messaging ? entry.messaging[0] : null;
+      if (webhookEvent) {
+        const senderId = webhookEvent.sender.id;
+        if (webhookEvent.message) {
+          handleMessage(senderId, webhookEvent.message);
+        }
       }
     });
 
@@ -59,8 +65,6 @@ app.post('/webhook', (req, res) => {
 
 // Handle incoming messages
 function handleMessage(senderId, receivedMessage) {
-  let response;
-
   if (receivedMessage.text) {
     const messageText = receivedMessage.text.toLowerCase();
 
@@ -88,10 +92,8 @@ function saveUserLike(userId) {
 // Find a stranger for the user
 function findStranger(senderId) {
   if (usersSearching.length > 0) {
-    // Match with another user
-    const strangerId = usersSearching.pop();
+    const strangerId = usersSearching.pop(); // Match with another user
 
-    // Store the chat pair
     activeChats[senderId] = strangerId;
     activeChats[strangerId] = senderId;
 
@@ -99,8 +101,7 @@ function findStranger(senderId) {
     callSendAPI(senderId, { text: "You are now connected to a stranger. Say hi!" });
     callSendAPI(strangerId, { text: "You are now connected to a stranger. Say hi!" });
   } else {
-    // No one is available, add the user to the search list
-    usersSearching.push(senderId);
+    usersSearching.push(senderId); // No one available, add to search
     callSendAPI(senderId, { text: "Looking for a stranger to chat with..." });
   }
 }
@@ -124,7 +125,6 @@ function endChat(senderId) {
     callSendAPI(senderId, { text: "You have ended the chat." });
     callSendAPI(partnerId, { text: "The stranger has left the chat." });
 
-    // Remove the chat pair
     delete activeChats[senderId];
     delete activeChats[partnerId];
   } else {
