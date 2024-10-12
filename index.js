@@ -1,34 +1,83 @@
-const express = require("express");
-const viewEngine = require("./config/viewEngine");
-const homepageController = require("./controllers/homepageController");
-const chatBotController = require("./controllers/chatBotController");
-const bodyParser = require("body-parser");
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
 
 const app = express();
-const router = express.Router();
+const PAGE_ACCESS_TOKEN = 'EAAT13Lq8BNIBO7zgrYlqwZBEootFXmXqXo8jWPZBcJng9Un57ZCZCdLX4gno50c3bcXFFNZBPpOxhE9xACpVpwNIaZCyMclyb993aHfJjt2YknrLd0ZCwlelxeLcY7NO9kSx9yi3MbrfZAewGAkiTOVb2ZCN7wHUzQme1DYR0NXSmVOKxUYKlYfnWAZACsrg0zWr1uvFOuvSwoZC3NBeeOKbQZDZD'; // Replace with your Page Access Token
+const VERIFY_TOKEN = 'J2L3M54A1S6'; // Replace with your Webhook Verify Token
 
-// Config view engine
-viewEngine(app);
-
-// Use body-parser to post data
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 
-// Define and initialize web routes
-const initWebRoutes = (app) => {
-    router.get("/", homepageController.getHomepage);
-    router.get("/webhook", chatBotController.getWebhook);
-    router.post("/webhook", chatBotController.postWebhook);
+// Webhook verification
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
 
-    return app.use("/", router);
-};
+  if (mode && token) {
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('Webhook Verified');
+      res.status(200).send(challenge);
+    } else {
+      res.status(403).send('Verification failed');
+    }
+  }
+});
 
-// Initialize web routes
-initWebRoutes(app);
+// Webhook for messages
+app.post('/webhook', (req, res) => {
+  const body = req.body;
 
-// Directly set the port
-const port = 8080;
+  if (body.object === 'page') {
+    body.entry.forEach(entry => {
+      const webhookEvent = entry.messaging[0];
+      const senderId = webhookEvent.sender.id;
 
-app.listen(port, () => {
-    console.log(`App is running at the port ${port}`);
+      if (webhookEvent.message) {
+        handleMessage(senderId, webhookEvent.message);
+      }
+    });
+
+    res.status(200).send('EVENT_RECEIVED');
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+function handleMessage(senderId, receivedMessage) {
+  let response;
+
+  if (receivedMessage.text) {
+    const messageText = receivedMessage.text.toLowerCase();
+
+    if (messageText.includes('hello')) {
+      response = { text: 'Hi! How can I help you today?' };
+    } else {
+      response = { text: "Sorry, I don't understand that command." };
+    }
+  }
+
+  callSendAPI(senderId, response);
+}
+
+function callSendAPI(senderId, response) {
+  const requestBody = {
+    recipient: {
+      id: senderId,
+    },
+    message: response,
+  };
+
+  axios
+    .post(`https://graph.facebook.com/v12.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, requestBody)
+    .then(() => {
+      console.log('Message sent successfully');
+    })
+    .catch((error) => {
+      console.error('Error sending message:', error.response ? error.response.data : error.message);
+    });
+}
+
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
 });
