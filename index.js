@@ -8,6 +8,10 @@ const VERIFY_TOKEN = 'J2L3M54A1S6'; // Replace with your Webhook Verify Token
 
 app.use(bodyParser.json());
 
+// Store users and chat sessions
+let usersSearching = []; // List of users looking for a stranger
+let activeChats = {};    // Store active chat pairs { userId1: userId2, userId2: userId1 }
+
 // Webhook verification
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -44,22 +48,74 @@ app.post('/webhook', (req, res) => {
   }
 });
 
+// Handle incoming messages
 function handleMessage(senderId, receivedMessage) {
   let response;
 
   if (receivedMessage.text) {
     const messageText = receivedMessage.text.toLowerCase();
 
-    if (messageText.includes('hello')) {
-      response = { text: 'Hi! How can I help you today?' };
+    if (messageText === '-start') {
+      findStranger(senderId);
+    } else if (messageText === '-end') {
+      endChat(senderId);
     } else {
-      response = { text: "Sorry, I don't understand that command." };
+      relayMessage(senderId, messageText);
     }
   }
-
-  callSendAPI(senderId, response);
 }
 
+// Find a stranger for the user
+function findStranger(senderId) {
+  if (usersSearching.length > 0) {
+    // Match with another user
+    const strangerId = usersSearching.pop(); // Remove one user from the search list
+
+    // Store the chat pair
+    activeChats[senderId] = strangerId;
+    activeChats[strangerId] = senderId;
+
+    // Notify both users
+    callSendAPI(senderId, { text: "You are now connected to a stranger. Say hi!" });
+    callSendAPI(strangerId, { text: "You are now connected to a stranger. Say hi!" });
+  } else {
+    // No one is available, add the user to the search list
+    usersSearching.push(senderId);
+    callSendAPI(senderId, { text: "Looking for a stranger to chat with..." });
+  }
+}
+
+// Relay messages between paired users
+function relayMessage(senderId, messageText) {
+  const partnerId = activeChats[senderId];
+
+  if (partnerId) {
+    // Send the message to the partner
+    callSendAPI(partnerId, { text: messageText });
+  } else {
+    // The user is not in an active chat
+    callSendAPI(senderId, { text: "You are not currently in a chat. Type '-start' to find a stranger." });
+  }
+}
+
+// End the chat between two users
+function endChat(senderId) {
+  const partnerId = activeChats[senderId];
+
+  if (partnerId) {
+    // Notify both users
+    callSendAPI(senderId, { text: "You have ended the chat." });
+    callSendAPI(partnerId, { text: "The stranger has left the chat." });
+
+    // Remove the chat pair
+    delete activeChats[senderId];
+    delete activeChats[partnerId];
+  } else {
+    callSendAPI(senderId, { text: "You are not currently in a chat." });
+  }
+}
+
+// Send messages using Facebook Graph API
 function callSendAPI(senderId, response) {
   const requestBody = {
     recipient: {
@@ -78,6 +134,7 @@ function callSendAPI(senderId, response) {
     });
 }
 
+// Start the server
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });
