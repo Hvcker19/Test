@@ -1,19 +1,30 @@
 const express = require("express");
 const viewEngine = require("./config/viewEngine");
-const initWebRoute = require("./routes/web");
+const homepageController = require("./controllers/homepageController");
+const chatBotController = require("./controllers/chatBotController");
 const bodyParser = require("body-parser");
 
 const app = express();
+const router = express.Router();
 
-// config view engine
+// Config view engine
 viewEngine(app);
 
-// use body-parser to post data
+// Use body-parser to post data
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// init all web routes
-initWebRoute(app);
+// Define and initialize web routes
+const initWebRoutes = (app) => {
+    router.get("/", homepageController.getHomepage);
+    router.get("/webhook", chatBotController.getWebhook);
+    router.post("/webhook", chatBotController.postWebhook);
+
+    return app.use("/", router);
+};
+
+// Initialize web routes
+initWebRoutes(app);
 
 // Directly set the port
 const port = 8080;
